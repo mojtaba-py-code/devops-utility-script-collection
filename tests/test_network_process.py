@@ -1,0 +1,144 @@
+"""Tests for the network toolkit and process manager.
+
+Network tests avoid the public internet: the port scanner and TCP check run
+against a real socket bound to localhost, and DNS resolves ``localhost``.
+Outbound HTTP/TLS/ping are exercised through mocks.
+"""
+
+from __future__ import annotations
+
+import socket
+from types import SimpleNamespace
+
+import pytest
+
+from tools import network_tools, process_tools
+
+
+@pytest.fixture
+def open_port():
+    """Bind a listening socket on localhost and yield its port."""
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    try:
+        yield port
+    finally:
+        srv.close()
+
+
+def test_tcp_check_open_and_closed(open_port: int):
+    ok = network_tools.tcp_check("127.0.0.1", open_port)
+    assert ok.ok and ok.data["open"]
+    from utils.security import free_tcp_port
+
+    closed = network_tools.tcp_check("127.0.0.1", free_tcp_port())
+    assert not closed.ok
+
+
+def test_scan_ports_finds_open(open_port: int):
+    result = network_tools.scan_ports("127.0.0.1", f"{open_port}", timeout=0.5)
+    assert result.ok
+    assert open_port in result.data["open_ports"]
+
+
+def test_scan_ports_validates_host():
+    result = network_tools.scan_ports("bad host!", "22")
+    assert not result.ok
+
+
+def test_dns_lookup_localhost():
+    result = network_tools.dns_lookup("localhost")
+    assert result.ok
+    assert result.data["addresses"]
+
+
+def test_ping_mocked(monkeypatch):
+    monkeypatch.setattr(
+        network_tools.subprocess, "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout="1 received"),
+    )
+    result = network_tools.ping("example.com", count=1)
+    assert result.ok and result.data["reachable"]
+
+
+def test_ping_unreachable_mocked(monkeypatch):
+    monkeypatch.setattr(
+        network_tools.subprocess, "run",
+        lambda *a, **k: SimpleNamespace(returncode=1, stdout="timeout"),
+    )
+    result = network_tools.ping("10.255.255.1", count=1)
+    assert not result.ok
+
+
+def test_http_health_mocked(monkeypatch):
+    class _Resp:
+        status_code = 200
+        elapsed = SimpleNamespace(total_seconds=lambda: 0.01)
+
+    monkeypatch.setattr(network_tools.requests, "get", lambda *a, **k: _Resp())
+    result = network_tools.http_health("https://example.com")
+    assert result.ok and result.data["status_code"] == 200
+
+
+def test_http_health_unexpected_status(monkeypatch):
+    class _Resp:
+        status_code = 503
+        elapsed = SimpleNamespace(total_seconds=lambda: 0.01)
+
+    monkeypatch.setattr(network_tools.requests, "get", lambda *a, **k: _Resp())
+    result = network_tools.http_health("https://example.com")
+    assert not result.ok
+
+
+def test_ssl_expiry_mocked(monkeypatch):
+    import ssl as ssl_mod
+
+    class _TLS:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def getpeercert(self):
+            return {"notAfter": "Dec 31 23:59:59 2030 GMT",
+                    "issuer": ((("organizationName", "Test CA"),),)}
+
+    class _Ctx:
+        def wrap_socket(self, sock, server_hostname=None): return _TLS()
+
+    class _Conn:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    monkeypatch.setattr(ssl_mod, "create_default_context", lambda: _Ctx())
+    monkeypatch.setattr(network_tools.socket, "create_connection", lambda *a, **k: _Conn())
+    result = network_tools.ssl_expiry("example.com")
+    assert result.ok
+    assert result.data["days_left"] > 0
+
+
+# --- process tools ----------------------------------------------------------
+def test_list_processes():
+    result = process_tools.list_processes(top=5)
+    assert result.ok
+    assert result.data["processes"]
+    assert len(result.data["processes"]) <= 5
+
+
+def test_list_processes_bad_sort():
+    result = process_tools.list_processes(sort_by="disk")
+    assert not result.ok
+
+
+def test_process_details_self():
+    import os
+
+    result = process_tools.process_details(os.getpid())
+    assert result.ok
+    assert result.data["pid"] == os.getpid()
+
+
+def test_control_process_validates_pid():
+    result = process_tools.control_process(1, "kill")
+    assert not result.ok  # protected PID rejected
+    bad = process_tools.control_process(999_999, "explode")
+    assert not bad.ok     # invalid action

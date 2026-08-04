@@ -1,0 +1,54 @@
+# DevOps Utility Script Collection — main configuration.
+# Values here override the built-in defaults in utils/config.py. Secrets NEVER
+# belong in this file: reference an environment variable with ${VAR} instead.
+
+general:
+  workers: 8              # ThreadPoolExecutor size for parallel operations
+  dry_run: false          # global default; --dry-run / --force override per call
+  chunk_size: 1048576     # bytes per read when streaming large files (1 MiB)
+
+security:
+  # When non-empty, every write/delete is confined to these roots. Set these to
+  # absolute paths in production so a bad glob can never escape them.
+  allowed_roots: []
+  redact_secrets: true
+
+logging:
+  level: INFO             # DEBUG | INFO | WARNING | ERROR | CRITICAL
+  directory: logs
+  max_bytes: 5242880      # 5 MiB per file before rotation
+  backup_count: 5
+  console: true
+
+database:
+  path: database/history.db
+  retention_days: 90
+
+reporting:
+  directory: reports
+  default_format: json    # json | csv | txt | html | pdf
+
+backup:
+  destination: backups
+  compression: zip        # zip | tar | gztar
+  keep_versions: 5
+  verify: true
+
+network:
+  timeout: 3.0
+  ping_count: 3
+  port_scan_timeout: 0.5
+
+monitoring:
+  cpu_percent:    {warning: 80, critical: 95}
+  memory_percent: {warning: 80, critical: 92}
+  disk_percent:   {warning: 80, critical: 92}
+
+notifications:
+  slack:
+    enabled: false
+    webhook_env: SLACK_WEBHOOK_URL      # the *name* of the env var holding the URL
+  telegram:
+    enabled: false
+    token_env: TELEGRAM_BOT_TOKEN
+    chat_id_env: TELEGRAM_CHAT_ID

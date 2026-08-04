@@ -1,0 +1,23 @@
+# Remote host inventory for SSH and deployment commands.
+#
+# SECURITY: credentials are never stored here. Each entry names the ENVIRONMENT
+# VARIABLE that holds the secret (password_env / key_passphrase_env), which is
+# read at connect time from the process environment (see .env.example).
+
+servers:
+  - name: web-01
+    host: 10.0.0.11
+    port: 22
+    username: deploy
+    # Authenticate with a key; the passphrase (if any) comes from the env var.
+    key_filename: ~/.ssh/id_ed25519
+    key_passphrase_env: WEB01_KEY_PASSPHRASE
+    tags: [web, production]
+
+  - name: db-01
+    host: 10.0.0.21
+    port: 22
+    username: admin
+    # Or authenticate with a password read from the environment.
+    password_env: DB01_SSH_PASSWORD
+    tags: [database, production]

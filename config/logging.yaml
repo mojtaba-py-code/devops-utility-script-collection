@@ -1,0 +1,20 @@
+# Optional standalone logging configuration.
+#
+# The application reads its logging block from settings.yaml by default; this
+# file documents the same knobs for teams that prefer to keep logging config
+# separate. Pass it explicitly if you wire it up, e.g. via a custom loader.
+
+level: INFO
+directory: logs
+max_bytes: 5242880
+backup_count: 5
+console: true
+
+# Per-domain log files are created automatically on first use:
+#   logs/devops.log      — everything
+#   logs/errors.log      — WARNING and above
+#   logs/backup.log      — backup operations
+#   logs/docker.log      — docker operations
+#   logs/ssh.log         — ssh operations
+#   logs/deploy.log      — deployment operations
+#   logs/monitoring.log  — monitoring samples
