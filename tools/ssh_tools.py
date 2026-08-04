@@ -60,8 +60,9 @@ def connect(
     ssh = paramiko.SSHClient()
     ssh.load_system_host_keys()
     if allow_unknown_hosts:
-        # Opt-in only, and still records the key rather than blindly trusting.
-        ssh.set_missing_host_key_policy(paramiko.WarningPolicy())
+        # Opt-in only (default is RejectPolicy below), and WarningPolicy still
+        # records the key and logs a warning rather than blindly trusting it.
+        ssh.set_missing_host_key_policy(paramiko.WarningPolicy())  # nosec B507 - opt-in, non-default
     else:
         ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
 
@@ -84,7 +85,10 @@ def run_command(client: Any, command: str, *, timeout: float = 30.0) -> Operatio
     """Execute *command* on the remote host and capture stdout/stderr/exit."""
     with timed("ssh", "exec") as result:
         try:
-            _stdin, stdout, stderr = client.exec_command(command, timeout=timeout)
+            # Running an operator-supplied command on the remote host is the
+            # explicit purpose of this function, over an already-authenticated
+            # channel; there is no shell interpolation of untrusted local input.
+            _stdin, stdout, stderr = client.exec_command(command, timeout=timeout)  # nosec B601
             exit_code = stdout.channel.recv_exit_status()
             out = stdout.read().decode("utf-8", errors="replace")
             err = stderr.read().decode("utf-8", errors="replace")

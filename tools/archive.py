@@ -117,7 +117,8 @@ def _extract_zip(arc: Path, dest: Path) -> int:
     with zipfile.ZipFile(arc) as zf:
         for member in zf.namelist():
             _safe_target(dest, member)  # validate before extracting
-        zf.extractall(dest)
+        # Every member is traversal-checked in the loop above before extraction.
+        zf.extractall(dest)  # nosec B202 - members validated (zipfile has no filter= arg)
         count = sum(1 for m in zf.namelist() if not m.endswith("/"))
     return count
 
@@ -130,7 +131,10 @@ def _extract_tar(arc: Path, dest: Path) -> int:
             if member.islnk() or member.issym():
                 raise SecurityError(f"Refusing link member in archive: {member.name!r}")
             _safe_target(dest, member.name)
-        tf.extractall(dest)  # noqa: S202 - members validated above
+        # Members are validated above (traversal + link checks); `filter="data"`
+        # adds a second, defence-in-depth guard from the stdlib (Python 3.12+):
+        # it strips absolute paths, links and unsafe metadata during extraction.
+        tf.extractall(dest, filter="data")  # noqa: S202  # nosec B202 - validated + data filter
         count = sum(1 for m in members if m.isfile())
     return count
 

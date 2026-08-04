@@ -79,7 +79,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "notifications": {
         # Channel toggles; credentials come from the environment (see .env).
         "slack": {"enabled": False, "webhook_env": "SLACK_WEBHOOK_URL"},
-        "telegram": {"enabled": False, "token_env": "TELEGRAM_BOT_TOKEN", "chat_id_env": "TELEGRAM_CHAT_ID"},
+        # "TELEGRAM_BOT_TOKEN" is the *name* of the env var to read, not a secret.
+        "telegram": {"enabled": False, "token_env": "TELEGRAM_BOT_TOKEN", "chat_id_env": "TELEGRAM_CHAT_ID"},  # nosec B105
     },
 }
 
