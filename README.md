@@ -1,5 +1,11 @@
 # DevOps Utility Script Collection
 
+[![CI](https://github.com/mojtaba-py-code/devops-utility-script-collection/actions/workflows/ci.yml/badge.svg)](https://github.com/mojtaba-py-code/devops-utility-script-collection/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org)
+[![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+[![Deps: pip-audit](https://img.shields.io/badge/deps-pip--audit-orange.svg)](https://github.com/pypa/pip-audit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A production-grade, security-first toolkit of DevOps automation utilities behind
 a single command-line interface. It bundles the day-to-day tasks a system
 administrator, DevOps or cloud engineer reaches for — backups, file sync,
@@ -11,7 +17,7 @@ Every operation returns a uniform result that can be printed, emitted as JSON,
 written to a report (JSON/CSV/TXT/HTML/PDF), and recorded to an audit history
 database.
 
-- **Python:** 3.12+
+- **Python:** 3.11+ (CI runs 3.11 and 3.12)
 - **Platforms:** Windows, Linux, macOS
 - **Tests:** 151 passing · **94% coverage**
 - **License:** MIT
