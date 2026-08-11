@@ -82,6 +82,18 @@ python main.py docker list
 python main.py deploy /srv/app --branch main --health-url http://localhost:8000/health
 ```
 
+Four of them on a real run — a verified backup, a mirror sync that reports what
+it *would* do before touching anything, and two live network checks:
+
+![Terminal session: full backup, dry-run mirror sync, TLS expiry check and an
+HTTP health check](docs/images/session.png)
+
+Every command prints a one-line status followed by a JSON result, so the same
+invocation works for a human reading a terminal and for a script piping into
+`jq`. `--dry-run` is available wherever an operation writes — above it listed
+the three files it would copy and deleted nothing — and `disk cleanup`, the one
+command that deletes by nature, is dry-run *by default* and needs `--force`.
+
 ### Global flags
 
 | Flag | Purpose |
