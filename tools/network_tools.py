@@ -130,6 +130,11 @@ def ssl_expiry(host: str, *, port: int = 443, timeout: float = 5.0) -> Operation
     with timed("network_tools", "ssl_expiry") as result:
         host, port = validate_host(host), validate_port(port)
         context = ssl.create_default_context()
+        # create_default_context() still permits TLS 1.0/1.1 on older Python
+        # builds. Both are deprecated and a host that only offers them has a
+        # worse problem than a soon-to-expire certificate, so refuse the
+        # handshake rather than report a reassuring expiry date over it.
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         with socket.create_connection((host, port), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=host) as tls:
                 cert = tls.getpeercert()
