@@ -3,7 +3,7 @@
 
 pytest>=8.0.0
 pytest-cov>=5.0.0
-docker>=7.0.0        # exercised via mocks; installed so imports resolve
+docker>=7.2.0        # exercised via mocks; installed so imports resolve
 paramiko>=3.4.0      # exercised via mocks; installed so imports resolve
 
 # Static analysis. Kept here (not in requirements.txt) so a deployment never
