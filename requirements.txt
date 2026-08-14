@@ -1,6 +1,6 @@
 # Runtime dependencies
 psutil>=5.9.0        # system, process and disk metrics
-PyYAML>=6.0.1        # layered YAML configuration
+PyYAML>=6.0.3        # layered YAML configuration
 rich>=13.7.0         # pretty CLI output and tables
 colorama>=0.4.6      # coloured console logging on Windows
 requests>=2.31.0     # HTTP health checks and notifications
