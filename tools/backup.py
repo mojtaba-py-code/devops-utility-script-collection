@@ -27,7 +27,7 @@ from tools.checksum import hash_file
 from utils.exceptions import ToolError, ValidationError
 from utils.formatting import utc_stamp
 from utils.logging_config import domain_logger
-from utils.security import is_within, resolve_path, validate_output_path
+from utils.security import is_within, resolve_path, validate_output_path, zip_member_is_symlink
 
 _log = domain_logger("backup")
 _MANIFEST_SUFFIX = ".manifest.json"
@@ -209,11 +209,18 @@ def verify_backup(archive: str | Path) -> OperationResult:
 
 def _extract_into(arc: Path, dest: Path) -> int:
     """Safely extract *arc* into *dest* (Zip-Slip protected); return file count."""
+    # Both sides of the containment test have to be resolved, or a symlink
+    # anywhere in *dest*'s own path makes a contained target look uncontained
+    # (or the reverse) purely because one side went through the link and the
+    # other did not.
+    root = dest.resolve()
     with zipfile.ZipFile(arc) as zf:
-        for name in zf.namelist():
-            if not is_within((dest / name).resolve(), dest):
-                raise ToolError(f"Blocked path traversal restoring {name!r}")
-        zf.extractall(dest)
+        for info in zf.infolist():
+            if zip_member_is_symlink(info):
+                raise ToolError(f"Refusing link member while restoring: {info.filename!r}")
+            if not is_within((root / info.filename).resolve(), root):
+                raise ToolError(f"Blocked path traversal restoring {info.filename!r}")
+        zf.extractall(dest)  # nosec B202 - members validated above
         return sum(1 for n in zf.namelist() if not n.endswith("/"))
 
 

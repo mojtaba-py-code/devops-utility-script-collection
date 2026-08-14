@@ -26,8 +26,11 @@ import re
 import shutil
 import socket
 import subprocess
+import zipfile
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
+from urllib.parse import urlsplit
 
 from utils.exceptions import SecurityError, ValidationError
 
@@ -184,8 +187,12 @@ def validate_pid(pid: int) -> int:
     return value
 
 
-def validate_port(port: int) -> int:
-    """Validate a TCP/UDP port number."""
+def validate_port(port: int | str) -> int:
+    """Validate a TCP/UDP port number.
+
+    Accepts the string form too, because port ranges arrive as text
+    (``"22,80,443"`` / ``"1-1024"``) and are split before validation.
+    """
     try:
         value = int(port)
     except (TypeError, ValueError) as exc:
@@ -208,6 +215,50 @@ def validate_host(host: str) -> str:
     if not _HOSTNAME_RE.match(host):
         raise ValidationError(f"Invalid hostname: {host!r}")
     return host
+
+
+# Unix mode bits sit in the top 16 of a ZIP entry's external_attr when the
+# archive was written on a Unix system; S_IFLNK marks the entry as a symlink.
+_S_IFLNK = 0xA000
+_S_IFMT = 0xF000
+
+
+def zip_member_is_symlink(info: zipfile.ZipInfo) -> bool:
+    """True if *info* describes a symbolic link.
+
+    A ZIP can carry symlinks and ``extractall`` recreates them. A member written
+    as ``etc -> /etc`` passes a path-traversal check on its own name and only
+    escapes once a *later* member is written through it, so link members are
+    refused outright — the rule the tar path already applies via
+    ``filter="data"``.
+    """
+    if info.create_system != 3:  # 3 == Unix; other systems carry no mode bits
+        return False
+    return (info.external_attr >> 16) & _S_IFMT == _S_IFLNK
+
+
+def validate_http_url(url: str) -> str:
+    """Validate *url* for an outbound HTTP(S) request.
+
+    Only the scheme and the presence of a host are enforced. Deliberately
+    **not** an SSRF guard: this toolkit is an operator CLI, and checking the
+    health of ``http://10.0.0.4:8080/healthz`` on your own private network is
+    the normal case rather than an attack. What is refused is a scheme that
+    would make ``requests`` read a local file or speak a protocol nobody asked
+    for (``file://``, ``gopher://``, and friends) — those are never what an
+    operator meant to type.
+
+    A service that takes a URL from an untrusted caller needs the stricter
+    check: resolve the host and require every address to be publicly routable.
+    """
+    if not url or not isinstance(url, str):
+        raise ValidationError(f"Invalid URL: {url!r}")
+    parts = urlsplit(url.strip())
+    if parts.scheme.lower() not in ("http", "https"):
+        raise ValidationError(f"Only http(s) URLs are allowed, got {parts.scheme!r}")
+    if not parts.hostname:
+        raise ValidationError(f"URL has no host: {url!r}")
+    return url.strip()
 
 
 def validate_port_range(spec: str) -> list[int]:

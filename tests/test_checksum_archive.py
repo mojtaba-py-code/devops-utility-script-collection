@@ -93,6 +93,41 @@ def test_extract_blocks_zip_slip(tmp_path: Path):
     assert not (tmp_path / "escape.txt").exists()
 
 
+def _write_symlink_member(zip_path: Path, name: str, target: str) -> None:
+    """Write a ZIP entry that a Unix extractor would recreate as a symlink."""
+    info = zipfile.ZipInfo(name)
+    info.create_system = 3  # Unix
+    info.external_attr = (0xA1FF) << 16  # S_IFLNK | 0777
+    with zipfile.ZipFile(zip_path, "a") as zf:
+        zf.writestr(info, target)
+
+
+def test_extract_blocks_zip_symlink_member(tmp_path: Path):
+    """A link member escapes only when a later member is written through it,
+    so the link itself has to be refused — a name check alone lets it past."""
+    evil = tmp_path / "link.zip"
+    with zipfile.ZipFile(evil, "w") as zf:
+        zf.writestr("readme.txt", "harmless")
+    _write_symlink_member(evil, "escape", str(tmp_path))
+
+    result = archive.extract_archive(evil, tmp_path / "dest")
+    assert not result.ok
+    assert not (tmp_path / "dest" / "escape").exists()
+
+
+def test_restore_blocks_zip_symlink_member(tmp_path: Path):
+    from tools import backup
+
+    evil = tmp_path / "backup_full_20260101T000000_000000Z.zip"
+    with zipfile.ZipFile(evil, "w") as zf:
+        zf.writestr("readme.txt", "harmless")
+    _write_symlink_member(evil, "escape", str(tmp_path))
+
+    result = backup.restore_backup(evil, tmp_path / "dest")
+    assert not result.ok
+    assert not (tmp_path / "dest" / "escape").exists()
+
+
 def test_extract_blocks_tar_slip(tmp_path: Path):
     payload = tmp_path / "payload.txt"
     payload.write_text("data", encoding="utf-8")

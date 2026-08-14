@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import tarfile
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 from core.base import OperationResult, timed
 from utils.exceptions import SecurityError, ValidationError
 from utils.logging_config import get_logger
-from utils.security import is_within, resolve_path, validate_output_path
+from utils.security import is_within, resolve_path, validate_output_path, zip_member_is_symlink
 
 _log = get_logger("archive")
 
@@ -53,7 +53,10 @@ def create_archive(
                     added += _add_to_zip(zf, src)
         else:
             _, mode = _FORMATS[fmt]
-            with tarfile.open(dest, mode) as tf:  # type: ignore[arg-type]
+            # `mode` comes from the _FORMATS table, so it is always one of the
+            # write modes tarfile.open overloads on; the table's value type is
+            # plain `str`, which no single overload matches.
+            with tarfile.open(dest, mode) as tf:  # type: ignore[call-overload]
                 for src in source_paths:
                     tf.add(src, arcname=src.name)
                     added += 1 if src.is_file() else sum(1 for _ in src.rglob("*"))
@@ -115,10 +118,12 @@ def _safe_target(dest: Path, member_name: str) -> Path:
 def _extract_zip(arc: Path, dest: Path) -> int:
     count = 0
     with zipfile.ZipFile(arc) as zf:
-        for member in zf.namelist():
-            _safe_target(dest, member)  # validate before extracting
-        # Every member is traversal-checked in the loop above before extraction.
-        zf.extractall(dest)  # nosec B202 - members validated (zipfile has no filter= arg)
+        for member in zf.infolist():
+            if zip_member_is_symlink(member):
+                raise SecurityError(f"Refusing link member in archive: {member.filename!r}")
+            _safe_target(dest, member.filename)  # validate before extracting
+        # Every member is traversal-checked and link-checked in the loop above.
+        zf.extractall(dest)  # noqa: S202  # nosec B202 - validated; zipfile has no filter= arg
         count = sum(1 for m in zf.namelist() if not m.endswith("/"))
     return count
 

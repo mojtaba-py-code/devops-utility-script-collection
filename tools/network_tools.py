@@ -12,16 +12,29 @@ import socket
 import ssl
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from core.base import OperationResult, timed
+from utils.exceptions import ToolError
 from utils.logging_config import get_logger
-from utils.security import validate_host, validate_port, validate_port_range
+from utils.security import (
+    validate_host,
+    validate_http_url,
+    validate_port,
+    validate_port_range,
+)
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import requests
-except ImportError:  # pragma: no cover
-    requests = None  # type: ignore[assignment]
+else:
+    try:
+        import requests
+    except ImportError:  # pragma: no cover
+        requests = None
 
 _log = get_logger("network_tools")
 
@@ -92,7 +105,10 @@ def dns_lookup(host: str) -> OperationResult:
     """Forward and reverse DNS resolution for *host*."""
     with timed("network_tools", "dns") as result:
         host = validate_host(host)
-        addresses = sorted({info[4][0] for info in socket.getaddrinfo(host, None)})
+        # getaddrinfo's sockaddr is typed as a union covering IPv4/IPv6/other
+        # families; the first element is the address string in every family we
+        # can reach here, so name it as such rather than indexing a union.
+        addresses = sorted({str(info[4][0]) for info in socket.getaddrinfo(host, None)})
         reverse: dict[str, str] = {}
         for addr in addresses:
             try:
@@ -111,7 +127,13 @@ def http_health(url: str, *, timeout: float = 5.0, expect: int = 200) -> Operati
             from utils.exceptions import DependencyError
 
             raise DependencyError("http health checks require 'requests'")
-        response = requests.get(url, timeout=timeout, allow_redirects=True)
+        url = validate_http_url(url)
+        session = requests.Session()
+        # An unbounded redirect chain turns a health check into a way to hang
+        # the caller (or walk it somewhere unexpected); three hops is plenty
+        # for the load-balancer and trailing-slash redirects that are normal here.
+        session.max_redirects = 3
+        response = session.get(url, timeout=timeout, allow_redirects=True)
         healthy = response.status_code == expect
         result.data = {
             "url": url,
@@ -138,14 +160,19 @@ def ssl_expiry(host: str, *, port: int = 443, timeout: float = 5.0) -> Operation
         with socket.create_connection((host, port), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=host) as tls:
                 cert = tls.getpeercert()
-        not_after = cert.get("notAfter", "") if cert else ""
-        expires = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
-        days_left = (expires - datetime.now(timezone.utc)).days
+        # getpeercert() is typed loosely (values may be strings or nested
+        # tuples); narrow the two fields we actually read.
+        not_after = str(cert.get("notAfter", "")) if cert else ""
+        if not not_after:
+            raise ToolError(f"{host}:{port} presented no certificate expiry")
+        expires = datetime.strptime(not_after, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=UTC)
+        days_left = (expires - datetime.now(UTC)).days
+        issuer_rdns: Any = cert.get("issuer", ()) if cert else ()
         result.data = {
             "host": host, "port": port,
             "expires": expires.isoformat(),
             "days_left": days_left,
-            "issuer": dict(x[0] for x in cert.get("issuer", [])) if cert else {},
+            "issuer": dict(rdn[0] for rdn in issuer_rdns if rdn),
         }
         if days_left < 0:
             result.fail(f"Certificate for {host} EXPIRED {abs(days_left)} day(s) ago")

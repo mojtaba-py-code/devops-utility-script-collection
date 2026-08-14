@@ -72,24 +72,59 @@ def test_ping_unreachable_mocked(monkeypatch):
     assert not result.ok
 
 
-def test_http_health_mocked(monkeypatch):
+def _mock_session(monkeypatch, status_code):
+    """Replace requests.Session so no test ever reaches the real network.
+
+    Returns the list of sessions the code under test constructed, so a caller
+    can assert on how each one was configured.
+    """
+    created = []
+
     class _Resp:
-        status_code = 200
         elapsed = SimpleNamespace(total_seconds=lambda: 0.01)
 
-    monkeypatch.setattr(network_tools.requests, "get", lambda *a, **k: _Resp())
+    _Resp.status_code = status_code
+
+    class _Session:
+        def __init__(self):
+            self.max_redirects = 30  # requests' default
+            created.append(self)
+
+        def get(self, *a, **k):
+            return _Resp()
+
+    monkeypatch.setattr(network_tools.requests, "Session", _Session)
+    return created
+
+
+def test_http_health_mocked(monkeypatch):
+    _mock_session(monkeypatch, 200)
     result = network_tools.http_health("https://example.com")
     assert result.ok and result.data["status_code"] == 200
 
 
 def test_http_health_unexpected_status(monkeypatch):
-    class _Resp:
-        status_code = 503
-        elapsed = SimpleNamespace(total_seconds=lambda: 0.01)
-
-    monkeypatch.setattr(network_tools.requests, "get", lambda *a, **k: _Resp())
+    _mock_session(monkeypatch, 503)
     result = network_tools.http_health("https://example.com")
     assert not result.ok
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["file:///etc/passwd", "gopher://127.0.0.1:11211/", "ftp://example.com/x", "not-a-url", ""],
+)
+def test_http_health_rejects_non_http_urls(url, monkeypatch):
+    """A scheme other than http(s) is never what an operator meant to type."""
+    created = _mock_session(monkeypatch, 200)
+    result = network_tools.http_health(url)
+    assert not result.ok
+    assert not created  # rejected before any session was opened
+
+
+def test_http_health_bounds_redirects(monkeypatch):
+    created = _mock_session(monkeypatch, 200)
+    network_tools.http_health("https://example.com")
+    assert [s.max_redirects for s in created] == [3]
 
 
 def test_ssl_expiry_mocked(monkeypatch):
