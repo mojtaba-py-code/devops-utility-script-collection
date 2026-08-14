@@ -8,15 +8,21 @@ are delivered through :mod:`tools.notify`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.base import OperationResult, timed
 from utils.logging_config import domain_logger
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import psutil
-except ImportError:  # pragma: no cover
-    psutil = None  # type: ignore[assignment]
+else:
+    try:
+        import psutil
+    except ImportError:  # pragma: no cover
+        psutil = None
 
 _log = domain_logger("monitoring")
 
@@ -35,7 +41,9 @@ def _severity(value: float, thresholds: dict[str, float]) -> str:
     return "ok"
 
 
-def snapshot(thresholds: dict[str, dict[str, float]] | None = None, *, disk_path: str = "/") -> OperationResult:
+def snapshot(
+    thresholds: dict[str, dict[str, float]] | None = None, *, disk_path: str = "/"
+) -> OperationResult:
     """Take one monitoring sample and evaluate it against *thresholds*."""
     with timed("monitoring", "snapshot") as result:
         if psutil is None:  # pragma: no cover

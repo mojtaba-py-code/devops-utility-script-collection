@@ -17,17 +17,23 @@ missing. A client can be injected for testing so no real host is needed.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.base import OperationResult, timed
 from utils.exceptions import DependencyError, RemoteError, SecurityError
 from utils.logging_config import domain_logger
 from utils.security import get_secret
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import paramiko
-except ImportError:  # pragma: no cover
-    paramiko = None  # type: ignore[assignment]
+else:
+    try:
+        import paramiko
+    except ImportError:  # pragma: no cover
+        paramiko = None
 
 _log = domain_logger("ssh")
 

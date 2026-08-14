@@ -18,8 +18,8 @@ try:
     import docker
     from docker.errors import DockerException, NotFound
 except ImportError:  # pragma: no cover
-    docker = None  # type: ignore[assignment]
-    DockerException = NotFound = Exception  # type: ignore[assignment,misc]
+    docker = None
+    DockerException = NotFound = Exception
 
 _log = domain_logger("docker")
 

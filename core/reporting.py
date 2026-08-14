@@ -13,8 +13,8 @@ import dataclasses
 import html
 import io
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from core.base import OperationResult
 from utils.exceptions import DependencyError, ToolError

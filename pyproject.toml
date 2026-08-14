@@ -1,0 +1,38 @@
+# Tool configuration only. The toolkit is run from a checkout (`python main.py`)
+# rather than installed as a package, so there is no [project] table here;
+# runtime and development dependencies stay in the requirements files.
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+exclude = ["logs", "reports", "database", "config"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "S", "UP"]
+# S404/S603/S607 flag the *existence* of subprocess use. This toolkit's job is
+# to run processes; the real guarantees — allow-listed executable, argv list,
+# never a shell, always a timeout — are enforced in `utils.security.safe_run`
+# and asserted in tests/test_security.py, which is a stronger control than
+# banning the import.
+ignore = ["S404", "S603", "S607"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B", "E501"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["tools", "utils", "core", "main.py"]
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+ignore_missing_imports = false
+
+# `docker` ships no type stubs and none exist on typeshed. It is exercised
+# through mocks in the test-suite, so the import is untyped by necessity.
+[[tool.mypy.overrides]]
+module = ["docker.*"]
+ignore_missing_imports = true
+
+[tool.bandit]
+# Tests deliberately construct hostile archives and malformed input.
+exclude_dirs = ["tests", "logs", "reports"]

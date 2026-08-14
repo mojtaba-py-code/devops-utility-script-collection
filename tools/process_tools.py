@@ -7,22 +7,29 @@ target PID through :func:`utils.security.validate_pid` — which refuses PID 0/1
 
 from __future__ import annotations
 
-from typing import Any
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
 
 from core.base import OperationResult, timed
 from utils.exceptions import ToolError, ValidationError
 from utils.logging_config import get_logger
 from utils.security import validate_pid
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import psutil
-except ImportError:  # pragma: no cover
-    psutil = None  # type: ignore[assignment]
+else:
+    try:
+        import psutil
+    except ImportError:  # pragma: no cover
+        psutil = None
 
 _log = get_logger("process_tools")
 
 
-def _require_psutil() -> "psutil":  # type: ignore[valid-type]
+def _require_psutil() -> ModuleType:
     if psutil is None:  # pragma: no cover
         raise ToolError("process tools require 'psutil' (pip install psutil)")
     return psutil

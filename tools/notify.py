@@ -8,15 +8,23 @@ notifier never breaks the operation it was reporting on.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from core.base import OperationResult, timed
 from utils.exceptions import DependencyError
 from utils.logging_config import get_logger
 from utils.security import get_secret
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import requests
-except ImportError:  # pragma: no cover
-    requests = None  # type: ignore[assignment]
+else:
+    try:
+        import requests
+    except ImportError:  # pragma: no cover
+        requests = None
 
 _log = get_logger("notify")
 
@@ -47,7 +55,7 @@ def send_slack(message: str, *, webhook_env: str = "SLACK_WEBHOOK_URL") -> Opera
 def send_telegram(
     message: str,
     *,
-    token_env: str = "TELEGRAM_BOT_TOKEN",
+    token_env: str = "TELEGRAM_BOT_TOKEN",  # noqa: S107 - env var name, not a token
     chat_id_env: str = "TELEGRAM_CHAT_ID",
 ) -> OperationResult:
     """Send *message* via the Telegram Bot API using env-provided credentials."""

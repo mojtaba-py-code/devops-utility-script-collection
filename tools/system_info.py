@@ -12,15 +12,21 @@ import platform
 import socket
 import time
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.base import OperationResult, timed
 from utils.formatting import human_bytes, human_duration
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import psutil
-except ImportError:  # pragma: no cover - psutil is a listed dependency
-    psutil = None  # type: ignore[assignment]
+else:
+    try:
+        import psutil
+    except ImportError:  # pragma: no cover
+        psutil = None
 
 
 def _cpu_info() -> dict[str, Any]:

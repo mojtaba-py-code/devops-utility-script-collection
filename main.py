@@ -17,8 +17,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Callable, Sequence
+from typing import TYPE_CHECKING
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -64,14 +65,23 @@ from utils.security import load_dotenv  # noqa: E402
 PROJECT_ROOT = Path(__file__).resolve().parent
 __version__ = "1.0.0"
 
-try:
+# Optional at runtime, always present for the type checker: rich is imported
+# normally under TYPE_CHECKING so its real signatures are used, and degrades to
+# plain prints at runtime when it is not installed.
+if TYPE_CHECKING:
     from rich.console import Console
     from rich.table import Table
 
     _console: Console | None = Console()
-except ImportError:  # pragma: no cover
-    _console = None
-    Table = None  # type: ignore[assignment,misc]
+else:
+    try:
+        from rich.console import Console
+        from rich.table import Table
+
+        _console = Console()
+    except ImportError:  # pragma: no cover
+        _console = None
+        Console = Table = None
 
 
 def _out(message: str) -> None:
@@ -367,26 +377,29 @@ def _emit(results: Sequence[OperationResult], args) -> None:
     if args.json:
         _print_json([r.as_dict() for r in results])
         return
-    if _console and Table is not None:
+    if _console is not None and Table is not None:
         for r in results:
-            _render_result(r)
+            _render_result(_console, r)
     else:  # pragma: no cover - rich always present in practice
         for r in results:
             print(f"[{r.status.value.upper()}] {r.tool}.{r.action}: {r.message}")
 
 
-def _render_result(r: OperationResult) -> None:
+def _render_result(console: Console, r: OperationResult) -> None:
+    # The console is passed in rather than read from the module global so the
+    # "rich is missing" branch above is the only place that has to think about
+    # it being None.
     colour = {"success": "green", "dry_run": "cyan", "partial": "yellow",
               "skipped": "grey58", "failure": "red"}.get(r.status.value, "white")
-    _console.print(f"[{colour}]● {r.status.value.upper()}[/{colour}]  "
-                   f"[bold]{r.tool}.{r.action}[/bold]  {r.message}  "
-                   f"[grey58]({r.duration_ms} ms)[/grey58]")
+    console.print(f"[{colour}]● {r.status.value.upper()}[/{colour}]  "
+                  f"[bold]{r.tool}.{r.action}[/bold]  {r.message}  "
+                  f"[grey58]({r.duration_ms} ms)[/grey58]")
     for warn in r.warnings:
-        _console.print(f"    [yellow]! {warn}[/yellow]")
+        console.print(f"    [yellow]! {warn}[/yellow]")
     for err in r.errors:
-        _console.print(f"    [red]✗ {err}[/red]")
+        console.print(f"    [red]✗ {err}[/red]")
     if r.data:
-        _console.print_json(json.dumps(r.data, default=str))
+        console.print_json(json.dumps(r.data, default=str))
 
 
 def _record(results: Sequence[OperationResult], db: HistoryDB | None, args) -> None:

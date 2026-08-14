@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/mojtaba-py-code/devops-utility-script-collection/actions/workflows/ci.yml/badge.svg)](https://github.com/mojtaba-py-code/devops-utility-script-collection/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org)
+[![Typed](https://img.shields.io/badge/typed-mypy-2A6DB2.svg)](https://mypy-lang.org/)
+[![Ruff](https://img.shields.io/badge/style-ruff-D7FF64.svg)](https://docs.astral.sh/ruff/)
 [![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 [![Deps: pip-audit](https://img.shields.io/badge/deps-pip--audit-orange.svg)](https://github.com/pypa/pip-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -19,7 +21,8 @@ database.
 
 - **Python:** 3.11+ (CI runs 3.11 and 3.12)
 - **Platforms:** Windows, Linux, macOS
-- **Tests:** 151 passing · **94% coverage**
+- **Tests:** 170 passing · **94% coverage**
+- **Checks:** `ruff` · `mypy` · `bandit` · `pip-audit`, all enforced in CI
 - **License:** MIT
 
 ---
@@ -152,7 +155,7 @@ utils/
   logging_config.py     # rotating, per-domain, secret-redacting logs
   formatting.py         # human-readable bytes/durations/timestamps
 config/                 # settings.yaml, servers.yaml, logging.yaml
-tests/                  # 151 tests, 94% coverage
+tests/                  # 170 tests, 94% coverage
 ```
 
 **Design principles:** modular single-responsibility tools, a shared result

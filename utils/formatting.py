@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 _UNITS = ("B", "KB", "MB", "GB", "TB", "PB")
 
@@ -41,14 +41,14 @@ def human_duration(seconds: float | int | None) -> str:
 
 def utc_now_iso() -> str:
     """Current UTC time as a second-precision ISO-8601 string."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def utc_stamp() -> str:
     """Filesystem-safe UTC timestamp with microseconds, e.g.
     ``20260803T061500_123456Z`` — precise enough to keep rapid, successive
     filenames (backups, reports) unique."""
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S_%fZ")
 
 
 def truncate(text: str, width: int = 60) -> str:

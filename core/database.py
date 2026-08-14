@@ -48,7 +48,7 @@ class HistoryDB:
         except sqlite3.Error as exc:
             raise DatabaseError(f"Could not open history database: {exc}") from exc
 
-    def __enter__(self) -> "HistoryDB":
+    def __enter__(self) -> HistoryDB:
         return self
 
     def __exit__(self, *_exc: object) -> None:

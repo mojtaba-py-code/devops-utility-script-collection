@@ -18,14 +18,20 @@ import copy
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from utils.exceptions import ConfigError
 
-try:
+# Optional at runtime, always present for the type checker: the module is
+# imported normally under TYPE_CHECKING so its real signatures are used,
+# and falls back to None at runtime when it is not installed.
+if TYPE_CHECKING:
     import yaml
-except ImportError:  # pragma: no cover - PyYAML is a hard dependency
-    yaml = None  # type: ignore[assignment]
+else:
+    try:
+        import yaml
+    except ImportError:  # pragma: no cover
+        yaml = None
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
@@ -121,7 +127,7 @@ def _load_yaml(path: Path, *, explicit: bool, default: dict[str, Any]) -> dict[s
         raise ConfigError("PyYAML is required to read configuration files")
     try:
         loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError) as exc:  # type: ignore[union-attr]
+    except (OSError, yaml.YAMLError) as exc:
         raise ConfigError(f"Failed to read {path}: {exc}") from exc
     if not isinstance(loaded, dict):
         raise ConfigError(f"Config root must be a mapping: {path}")
@@ -140,7 +146,7 @@ class Config:
         cls,
         settings_path: str | Path | None = None,
         servers_path: str | Path | None = None,
-    ) -> "Config":
+    ) -> Config:
         s_path = Path(settings_path) if settings_path else CONFIG_DIR / "settings.yaml"
         v_path = Path(servers_path) if servers_path else CONFIG_DIR / "servers.yaml"
         settings = _load_yaml(s_path, explicit=settings_path is not None, default=DEFAULT_SETTINGS)

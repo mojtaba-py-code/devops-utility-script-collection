@@ -8,6 +8,7 @@ import sys
 import tarfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -15,7 +16,6 @@ from core.base import OperationResult
 from core.database import HistoryDB
 from core.reporting import generate_report
 from tools import archive, notify, process_tools
-from types import SimpleNamespace
 
 
 # --- reporting: PDF + error/warning rendering -------------------------------

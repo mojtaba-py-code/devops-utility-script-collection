@@ -57,7 +57,11 @@ def git_pull(repo: str | Path, *, branch: str | None = None) -> OperationResult:
         if proc.returncode != 0:
             result.fail(f"git pull failed: {proc.stderr.strip()[:300]}")
         else:
-            result.finalize("Already up to date" if before == after else f"Updated {before[:7]} -> {after[:7]}")
+            result.finalize(
+                "Already up to date"
+                if before == after
+                else f"Updated {before[:7]} -> {after[:7]}"
+            )
         _log.info("deploy: pull %s rc=%s", path, proc.returncode)
     return result
 

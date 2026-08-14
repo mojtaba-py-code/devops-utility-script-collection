@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from core.base import OperationResult, timed
 from utils.exceptions import ValidationError
@@ -25,7 +26,10 @@ _LEVEL_RE = re.compile(r"\b(DEBUG|INFO|WARN|WARNING|ERROR|CRITICAL|FATAL)\b", re
 
 # (label, compiled pattern) — deliberately conservative to limit false positives.
 _SUSPICIOUS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("auth_failure", re.compile(r"(failed password|authentication failure|invalid user|access denied)", re.I)),
+    (
+        "auth_failure",
+        re.compile(r"(failed password|authentication failure|invalid user|access denied)", re.I),
+    ),
     ("path_traversal", re.compile(r"(\.\./|\.\.\\|%2e%2e)", re.I)),
     ("sql_injection", re.compile(r"(union\s+select|or\s+1=1|';--|xp_cmdshell)", re.I)),
     ("xss_attempt", re.compile(r"(<script>|javascript:|onerror=)", re.I)),

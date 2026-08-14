@@ -9,15 +9,16 @@ teaching the rest of the system a new vocabulary.
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Iterator
+from enum import StrEnum
+from typing import Any
 
 from utils.formatting import utc_now_iso
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     """The outcome of an operation (string-valued for clean JSON)."""
 
     SUCCESS = "success"
@@ -54,14 +55,14 @@ class OperationResult:
     def add_warning(self, message: str) -> None:
         self.warnings.append(message)
 
-    def fail(self, message: str) -> "OperationResult":
+    def fail(self, message: str) -> OperationResult:
         self.status = Status.FAILURE
         if message:
             self.errors.append(message)
             self.message = self.message or message
         return self
 
-    def finalize(self, message: str | None = None) -> "OperationResult":
+    def finalize(self, message: str | None = None) -> OperationResult:
         """Promote a clean run to SUCCESS and set a summary message."""
         if message is not None:
             self.message = message

@@ -104,7 +104,9 @@ class _FakeStream:
 
 
 class _FakeSFTP:
-    def __init__(self): self.put_calls = []; self.get_calls = []
+    def __init__(self):
+        self.put_calls = []
+        self.get_calls = []
     def put(self, local, remote): self.put_calls.append((local, remote))
     def get(self, remote, local):
         from pathlib import Path
