@@ -1,17 +1,17 @@
 # Development & test dependencies
 -r requirements.txt
 
-pytest>=8.0.0
-pytest-cov>=5.0.0
+pytest>=9.1.1
+pytest-cov>=7.1.0
 docker>=7.2.0        # exercised via mocks; installed so imports resolve
 paramiko>=3.4.0      # exercised via mocks; installed so imports resolve
 
 # Static analysis. Kept here (not in requirements.txt) so a deployment never
 # installs them, while CI and a local checkout both get the same versions.
-ruff>=0.6.0
-mypy>=1.11.0
-bandit>=1.7.0
-pip-audit>=2.7.0
+ruff>=0.16.2
+mypy>=2.3.0
+bandit>=1.9.4
+pip-audit>=2.10.1
 
 # Type stubs for the optional third-party dependencies above.
 types-psutil
