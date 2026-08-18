@@ -8,8 +8,8 @@ paramiko>=3.4.0      # exercised via mocks; installed so imports resolve
 
 # Static analysis. Kept here (not in requirements.txt) so a deployment never
 # installs them, while CI and a local checkout both get the same versions.
-ruff>=0.16.2
-mypy>=2.3.0
+ruff>=0.16.3
+mypy>=2.3.1
 bandit>=1.9.4
 pip-audit>=2.10.1
 
