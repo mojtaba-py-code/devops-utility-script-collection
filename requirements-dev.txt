@@ -4,7 +4,7 @@
 pytest>=9.1.1
 pytest-cov>=7.1.0
 docker>=7.2.0        # exercised via mocks; installed so imports resolve
-paramiko>=3.4.0      # exercised via mocks; installed so imports resolve
+paramiko>=5.0.0      # exercised via mocks; installed so imports resolve
 
 # Static analysis. Kept here (not in requirements.txt) so a deployment never
 # installs them, while CI and a local checkout both get the same versions.
