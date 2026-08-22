@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   must be a bare program name, it is resolved on `PATH`, re-checked against the
   allow-list, and refused when it resolves into the working directory or the
   system temp tree.
+- The network toolkit's `ping` no longer spawns its own sub-process, which
+  bypassed all of the above and ran a bare `ping` the allow-list did not even
+  list — on Windows a `ping.exe` planted in the working directory would have
+  been picked up first. `ping` joins the allow-list and the call goes through
+  `safe_run`, making it the only place the toolkit starts a process.
 - ZIP extraction refuses symlink members, and the deployment health check is
   bounded so a hostile endpoint cannot hold the pipeline open.
 - Reading a TLS certificate requires TLS 1.2 or better.

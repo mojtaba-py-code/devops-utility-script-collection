@@ -22,7 +22,7 @@ database.
 
 - **Python:** 3.11+ (CI runs 3.11 and 3.12)
 - **Platforms:** Windows, Linux, macOS
-- **Tests:** 172 passing · coverage **≥85% enforced in CI**
+- **Tests:** 173 passing · coverage **≥85% enforced in CI**
 - **Checks:** `ruff` · `mypy` · `bandit` · `pip-audit`, all enforced in CI
 - **License:** MIT
 
@@ -156,7 +156,7 @@ utils/
   logging_config.py     # rotating, per-domain, secret-redacting logs
   formatting.py         # human-readable bytes/durations/timestamps
 config/                 # settings.yaml, servers.yaml, logging.yaml
-tests/                  # 172 tests, coverage floor enforced in CI
+tests/                  # 173 tests, coverage floor enforced in CI
 ```
 
 **Design principles:** modular single-responsibility tools, a shared result
@@ -174,10 +174,13 @@ Security is enforced centrally in `utils/security.py` and applied everywhere:
   system directories can never be deleted.
 - **Archive extraction** — every member is validated against the destination
   before writing, defeating Zip-Slip / Tar-Slip; link members are rejected.
-- **Command execution** — only an allow-list of binaries can be run: the caller
-  names one (never a path), it is resolved on `PATH`, and a resolution landing
-  in a writable directory is refused — always with `shell=False` and a timeout
-  (no shell injection, no planted binaries, no hangs).
+- **Command execution** — every sub-process the toolkit starts goes through the
+  single `safe_run` helper, so only an allow-listed binary can ever run: the
+  caller names one (never a path), it is resolved on `PATH`, the file that
+  resolution landed on is re-checked against the allow-list, and a resolution
+  into the working directory or the temp tree is refused — always with
+  `shell=False` and a timeout (no shell injection, no planted binaries, no
+  hangs).
 - **Input validation** — hosts, ports, port ranges and PIDs are validated;
   PID 0/1 are protected from signals.
 - **Secrets** — credentials come only from environment variables / `.env`
