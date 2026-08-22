@@ -36,8 +36,11 @@ jobs:
         run: ruff check .
       - name: Mypy (type-check)
         run: mypy
-      - name: Run tests
-        run: pytest -q
+      - name: Run tests (coverage must stay above the floor)
+        run: >-
+          pytest -q
+          --cov=core --cov=tools --cov=utils --cov=main
+          --cov-report=term-missing --cov-fail-under=85
 
   security:
     name: Security scan
