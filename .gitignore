@@ -17,8 +17,12 @@ env/
 .env
 *.pem
 *.key
-id_rsa
-id_ed25519
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+credentials.json
 
 # Generated at runtime
 logs/*.log
