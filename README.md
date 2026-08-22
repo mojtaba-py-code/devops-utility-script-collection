@@ -3,6 +3,7 @@
 [![CI](https://github.com/mojtaba-py-code/devops-utility-script-collection/actions/workflows/ci.yml/badge.svg)](https://github.com/mojtaba-py-code/devops-utility-script-collection/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org)
 [![Typed](https://img.shields.io/badge/typed-mypy-2A6DB2.svg)](https://mypy-lang.org/)
+[![Coverage](https://img.shields.io/badge/coverage-%E2%89%A585%25%20enforced%20in%20CI-brightgreen.svg)](.github/workflows/ci.yml)
 [![Ruff](https://img.shields.io/badge/style-ruff-D7FF64.svg)](https://docs.astral.sh/ruff/)
 [![Security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
 [![Deps: pip-audit](https://img.shields.io/badge/deps-pip--audit-orange.svg)](https://github.com/pypa/pip-audit)
@@ -21,7 +22,7 @@ database.
 
 - **Python:** 3.11+ (CI runs 3.11 and 3.12)
 - **Platforms:** Windows, Linux, macOS
-- **Tests:** 170 passing · **94% coverage**
+- **Tests:** 172 passing · coverage **≥85% enforced in CI**
 - **Checks:** `ruff` · `mypy` · `bandit` · `pip-audit`, all enforced in CI
 - **License:** MIT
 
@@ -155,7 +156,7 @@ utils/
   logging_config.py     # rotating, per-domain, secret-redacting logs
   formatting.py         # human-readable bytes/durations/timestamps
 config/                 # settings.yaml, servers.yaml, logging.yaml
-tests/                  # 170 tests, 94% coverage
+tests/                  # 172 tests, coverage floor enforced in CI
 ```
 
 **Design principles:** modular single-responsibility tools, a shared result
@@ -205,6 +206,9 @@ not stored. See `.env.example` for the expected variables.
 pytest                                  # run everything
 pytest --cov=core --cov=tools --cov=utils --cov=main --cov-report=term-missing
 ```
+
+CI runs the second form with `--cov-fail-under=85`, so a change that drops
+coverage below the floor fails the build rather than the badge quietly lying.
 
 The suite is hermetic: Docker/SSH are exercised through injected fakes, the
 network toolkit runs against localhost sockets and mocks, and no test touches a
