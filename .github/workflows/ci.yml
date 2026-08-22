@@ -51,6 +51,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Credential shapes, not the word "password": the test-suite legitimately
+      # contains fake secrets to prove the redactor masks them. Dependency-free
+      # on purpose — a secret scanner is the last place to add a supply chain.
+      - name: Secret scan (nothing credential-shaped in the tree)
+        run: |
+          set -euo pipefail
+          patterns='AKIA[0-9A-Z]{16}'
+          patterns="$patterns"'|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+          patterns="$patterns"'|gh[pousr]_[A-Za-z0-9]{36}'
+          patterns="$patterns"'|xox[abprs]-[0-9A-Za-z-]{10,}'
+          patterns="$patterns"'|sk_live_[0-9A-Za-z]{16,}'
+          patterns="$patterns"'|AIza[0-9A-Za-z_-]{35}'
+          patterns="$patterns"'|hooks\.slack\.com/services/[A-Za-z0-9_/-]{20,}'
+          if git grep -nIE "$patterns" -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::A committed value looks like a live credential"
+            exit 1
+          fi
+          if git ls-files --error-unmatch .env > /dev/null 2>&1; then
+            echo "::error::.env is tracked — secrets belong in the environment"
+            exit 1
+          fi
+          echo "No credential-shaped values are committed."
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
