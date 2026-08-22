@@ -7,6 +7,7 @@ target PID through :func:`utils.security.validate_pid` — which refuses PID 0/1
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
 
@@ -110,7 +111,7 @@ def control_process(pid: int, action: str) -> OperationResult:
     return result
 
 
-def _safe(func) -> Any:
+def _safe(func: Callable[[], Any]) -> Any:
     try:
         return func()
     except Exception:  # noqa: BLE001 - best-effort field, may be denied  # pragma: no cover

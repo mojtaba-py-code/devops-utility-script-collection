@@ -22,7 +22,7 @@ _DEFAULT_CHUNK = 1_048_576  # 1 MiB
 _log = get_logger("checksum")
 
 
-def _new_hash(algorithm: str):
+def _new_hash(algorithm: str) -> hashlib._Hash:
     algorithm = algorithm.lower()
     if algorithm not in SUPPORTED_ALGORITHMS:
         raise ValidationError(

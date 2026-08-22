@@ -26,6 +26,9 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 no_implicit_optional = true
 ignore_missing_imports = false
+# The "typed" badge has to mean something: every function in the checked
+# packages carries a full signature, so an unannotated def fails the build.
+disallow_untyped_defs = true
 
 # `docker` ships no type stubs and none exist on typeshed. It is exercised
 # through mocks in the test-suite, so the import is untyped by necessity.

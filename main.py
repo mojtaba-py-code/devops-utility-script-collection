@@ -19,7 +19,7 @@ import json
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -206,12 +206,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 # ---------------------------------------------------------------------------
 # Command handlers — each returns an OperationResult or a list of them.
+# A handler returning None has already written its own output.
 # ---------------------------------------------------------------------------
-def cmd_system_info(args, cfg, db):
+HandlerResult = OperationResult | list[OperationResult] | None
+Handler = Callable[[argparse.Namespace, Config, "HistoryDB | None"], HandlerResult]
+
+
+def cmd_system_info(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return system_info.collect_system_info()
 
 
-def cmd_backup(args, cfg, db):
+def cmd_backup(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult | None:
     roots = cfg.allowed_roots()
     if args.list:
         dest = args.dest or cfg.get("backup.destination", "backups")
@@ -232,12 +237,12 @@ def cmd_backup(args, cfg, db):
     )
 
 
-def cmd_sync(args, cfg, db):
+def cmd_sync(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return file_sync.sync(args.source, args.dest, mode=args.mode,
                           dry_run=args.dry_run, allowed_roots=cfg.allowed_roots())
 
 
-def cmd_checksum(args, cfg, db):
+def cmd_checksum(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     if args.verify:
         if len(args.paths) != 1:
             raise DevOpsError("--verify expects exactly one file")
@@ -245,7 +250,7 @@ def cmd_checksum(args, cfg, db):
     return checksum.hash_paths(args.paths, algorithm=args.algorithm)
 
 
-def cmd_archive(args, cfg, db):
+def cmd_archive(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     roots = cfg.allowed_roots()
     if args.create:
         if not args.dest:
@@ -260,7 +265,7 @@ def cmd_archive(args, cfg, db):
     raise DevOpsError("archive: choose --create, --extract or --verify")
 
 
-def cmd_disk(args, cfg, db):
+def cmd_disk(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     if args.largest:
         return disk_tools.largest_files(args.path, top=args.largest)
     if args.empty:
@@ -271,11 +276,11 @@ def cmd_disk(args, cfg, db):
     return disk_tools.disk_usage(args.path)
 
 
-def cmd_logs(args, cfg, db):
+def cmd_logs(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return log_analyzer.analyze_log(args.path, keywords=args.keywords)
 
 
-def cmd_processes(args, cfg, db):
+def cmd_processes(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     for verb, pid in (("kill", args.kill), ("suspend", args.suspend), ("resume", args.resume)):
         if pid is not None:
             if not args.force and not _confirm(f"Really {verb} PID {pid}?"):
@@ -286,27 +291,27 @@ def cmd_processes(args, cfg, db):
     return process_tools.list_processes(top=args.top, sort_by=args.sort)
 
 
-def cmd_ping(args, cfg, db):
+def cmd_ping(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return network_tools.ping(args.host, count=args.count, timeout=cfg.get("network.timeout", 3.0))
 
 
-def cmd_scan(args, cfg, db):
+def cmd_scan(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return network_tools.scan_ports(args.host, args.ports, timeout=cfg.get("network.port_scan_timeout", 0.5))
 
 
-def cmd_dns(args, cfg, db):
+def cmd_dns(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return network_tools.dns_lookup(args.host)
 
 
-def cmd_http(args, cfg, db):
+def cmd_http(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return network_tools.http_health(args.url, expect=args.expect, timeout=cfg.get("network.timeout", 5.0))
 
 
-def cmd_ssl(args, cfg, db):
+def cmd_ssl(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return network_tools.ssl_expiry(args.host, port=args.port)
 
 
-def cmd_docker(args, cfg, db):
+def cmd_docker(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     if args.action == "list":
         return docker_tools.list_containers()
     if not args.target:
@@ -320,19 +325,19 @@ def cmd_docker(args, cfg, db):
     return docker_tools.container_action(args.target, args.action)
 
 
-def cmd_services(args, cfg, db):
+def cmd_services(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return service_manager.manage_service(args.name, args.action)
 
 
-def cmd_deploy(args, cfg, db):
+def cmd_deploy(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return deploy.deploy(args.repo, branch=args.branch, manager=args.manager, health_url=args.health_url)
 
 
-def cmd_monitor(args, cfg, db):
+def cmd_monitor(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> OperationResult:
     return monitoring.snapshot(cfg.get("monitoring"))
 
 
-def cmd_history(args, cfg, db):
+def cmd_history(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> None:
     if db is None:
         raise DevOpsError("History database unavailable")
     payload = db.summary() if args.summary else db.recent(tool=args.tool, limit=args.limit)
@@ -340,12 +345,12 @@ def cmd_history(args, cfg, db):
     return None
 
 
-def cmd_config(args, cfg, db):
+def cmd_config(args: argparse.Namespace, cfg: Config, db: HistoryDB | None) -> None:
     _print_json({"settings": cfg.settings, "servers": cfg.servers})
     return None
 
 
-_HANDLERS: dict[str, Callable] = {
+_HANDLERS: dict[str, Handler] = {
     "system-info": cmd_system_info, "backup": cmd_backup, "sync": cmd_sync,
     "checksum": cmd_checksum, "archive": cmd_archive, "disk": cmd_disk, "logs": cmd_logs,
     "processes": cmd_processes, "ping": cmd_ping, "scan": cmd_scan, "dns": cmd_dns,
@@ -367,13 +372,13 @@ def _format_list(title: str, entries: list) -> str:
     return f"{title}:\n" + "\n".join(f"  - {json.dumps(e, default=str)}" for e in entries)
 
 
-def _print_json(obj) -> None:
+def _print_json(obj: Any) -> None:
     # Plain stdout, never the rich console — rich soft-wraps long lines, which
     # would insert newlines inside string values and corrupt the JSON.
     print(json.dumps(obj, indent=2, default=str))
 
 
-def _emit(results: Sequence[OperationResult], args) -> None:
+def _emit(results: Sequence[OperationResult], args: argparse.Namespace) -> None:
     if args.json:
         _print_json([r.as_dict() for r in results])
         return
@@ -402,7 +407,8 @@ def _render_result(console: Console, r: OperationResult) -> None:
         console.print_json(json.dumps(r.data, default=str))
 
 
-def _record(results: Sequence[OperationResult], db: HistoryDB | None, args) -> None:
+def _record(results: Sequence[OperationResult], db: HistoryDB | None,
+            args: argparse.Namespace) -> None:
     if db is None or args.no_history:
         return
     for r in results:
@@ -412,7 +418,8 @@ def _record(results: Sequence[OperationResult], db: HistoryDB | None, args) -> N
             pass
 
 
-def _maybe_report(results: Sequence[OperationResult], cfg: Config, args) -> None:
+def _maybe_report(results: Sequence[OperationResult], cfg: Config,
+                  args: argparse.Namespace) -> None:
     if not args.report:
         return
     out_dir = args.output or (PROJECT_ROOT / cfg.get("reporting.directory", "reports"))
@@ -423,7 +430,7 @@ def _maybe_report(results: Sequence[OperationResult], cfg: Config, args) -> None
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
-def _open_db(cfg: Config):
+def _open_db(cfg: Config) -> HistoryDB | None:
     if _current_args and _current_args.no_history:
         return None
     try:
