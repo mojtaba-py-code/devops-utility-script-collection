@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import socket
 import ssl
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -19,6 +18,7 @@ from core.base import OperationResult, timed
 from utils.exceptions import ToolError
 from utils.logging_config import get_logger
 from utils.security import (
+    safe_run,
     validate_host,
     validate_http_url,
     validate_port,
@@ -47,11 +47,12 @@ def ping(host: str, *, count: int = 3, timeout: float = 3.0) -> OperationResult:
         host = validate_host(host)
         count = max(1, min(int(count), 20))
         flag = "-n" if platform.system() == "Windows" else "-c"
-        # ``ping`` is a fixed argv with validated host — no shell, no injection.
-        proc = subprocess.run(  # noqa: S603,S607 - fixed binary, validated args
-            ["ping", flag, str(count), host],
-            capture_output=True, text=True, timeout=timeout * count + 5,
-        )
+        # Named, never pathed: ``safe_run`` resolves ``ping`` on PATH, re-checks
+        # the file it landed on against the allow-list and refuses a copy
+        # planted in the working directory or the temp tree — the same rule
+        # every other sub-process in the toolkit goes through. The host is
+        # already validated above, so the argv carries no injectable text.
+        proc = safe_run(["ping", flag, str(count), host], timeout=timeout * count + 5)
         reachable = proc.returncode == 0
         result.data = {"host": host, "reachable": reachable, "count": count,
                        "output": proc.stdout.strip()[-500:]}

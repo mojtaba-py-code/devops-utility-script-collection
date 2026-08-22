@@ -25,7 +25,7 @@ def _ok(tool="t", action="a", **data) -> OperationResult:
 
 def test_ping_cli(monkeypatch, capsys):
     monkeypatch.setattr(
-        "tools.network_tools.subprocess.run",
+        "tools.network_tools.safe_run",
         lambda *a, **k: SimpleNamespace(returncode=0, stdout="1 received"),
     )
     assert run("ping", "example.com", "--count", "1", "--json", "--no-history") == 0

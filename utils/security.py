@@ -56,6 +56,8 @@ _ALLOWED_COMMANDS: frozenset[str] = frozenset(
         "npm",
         "npm.cmd",
         "pytest",
+        "ping",
+        "ping.exe",
     }
 )
 

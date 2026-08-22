@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from tools import network_tools, process_tools
+from utils import security
 
 
 @pytest.fixture
@@ -55,21 +56,38 @@ def test_dns_lookup_localhost():
 
 
 def test_ping_mocked(monkeypatch):
-    monkeypatch.setattr(
-        network_tools.subprocess, "run",
-        lambda *a, **k: SimpleNamespace(returncode=0, stdout="1 received"),
-    )
+    seen: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        seen.append(list(command))
+        return SimpleNamespace(returncode=0, stdout="1 received")
+
+    monkeypatch.setattr(network_tools, "safe_run", fake_run)
     result = network_tools.ping("example.com", count=1)
     assert result.ok and result.data["reachable"]
+    # The hardened path is the one that runs it: a bare, allow-listed name that
+    # ``safe_run`` resolves and vets, never a caller-supplied path.
+    argv = seen[0]
+    assert argv[0] == "ping"
+    assert security._is_allow_listed(argv[0])
+    assert argv[1] in ("-n", "-c") and argv[2] == "1" and argv[3] == "example.com"
 
 
 def test_ping_unreachable_mocked(monkeypatch):
     monkeypatch.setattr(
-        network_tools.subprocess, "run",
+        network_tools, "safe_run",
         lambda *a, **k: SimpleNamespace(returncode=1, stdout="timeout"),
     )
     result = network_tools.ping("10.255.255.1", count=1)
     assert not result.ok
+
+
+def test_ping_refuses_a_binary_it_cannot_vet(monkeypatch):
+    """``ping`` now goes through the allow-list, so a failed vet stops the run."""
+    monkeypatch.setattr(security.shutil, "which", lambda name: None)
+    result = network_tools.ping("example.com", count=1)
+    assert not result.ok
+    assert any("SecurityError" in err for err in result.errors)
 
 
 def _mock_session(monkeypatch, status_code):
