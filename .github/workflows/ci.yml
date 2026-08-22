@@ -4,6 +4,10 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  # Monday morning: re-run bandit and pip-audit against a fresh advisory
+  # database, so a CVE published after the last push still surfaces.
+  schedule:
+    - cron: "0 6 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
