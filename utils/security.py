@@ -26,6 +26,7 @@ import re
 import shutil
 import socket
 import subprocess
+import tempfile
 import zipfile
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -34,8 +35,9 @@ from urllib.parse import urlsplit
 
 from utils.exceptions import SecurityError, ValidationError
 
-# Executables the toolkit is ever allowed to invoke. Resolved to absolute
-# paths at call time; anything not listed here is refused outright.
+# Executables the toolkit is ever allowed to invoke. A caller names one of
+# these and nothing else — never a path — and the name is resolved on PATH to
+# the absolute file that actually runs; anything else is refused outright.
 _ALLOWED_COMMANDS: frozenset[str] = frozenset(
     {
         "git",
@@ -284,6 +286,61 @@ def validate_port_range(spec: str) -> list[int]:
 # ---------------------------------------------------------------------------
 # Command safety
 # ---------------------------------------------------------------------------
+def _is_allow_listed(name: str) -> bool:
+    """Match a file name against the allow-list, ignoring a Windows suffix.
+
+    ``shutil.which("pip")`` answers ``pip.exe`` on Windows, so the resolved
+    file is compared both verbatim and with its executable extension removed.
+    """
+    lowered = name.lower()
+    return lowered in _ALLOWED_COMMANDS or Path(lowered).stem in _ALLOWED_COMMANDS
+
+
+def _is_untrusted_location(executable: Path) -> bool:
+    """Report whether *executable* sits somewhere any process could plant it.
+
+    Two locations matter and both are portable: the working directory — which
+    ``shutil.which`` searches *first* on Windows, so a dropped ``git.exe``
+    would otherwise beat the real one — and the system temp tree, where no
+    legitimate system binary lives.
+    """
+    try:
+        if executable.parent.resolve() == Path.cwd().resolve():
+            return True
+    except OSError:  # pragma: no cover - unreadable working directory
+        return True
+    return is_within(executable, Path(tempfile.gettempdir()))
+
+
+def resolve_executable(name: str) -> str:
+    """Resolve an allow-listed program *name* to the absolute path to run.
+
+    The allow-list is only meaningful if the caller cannot choose *which* file
+    the name refers to, so a name carrying a directory component is refused
+    outright: matching on the basename alone would let ``/tmp/attacker/git``
+    pass as ``git``. What ``PATH`` resolves the name to is then checked against
+    the allow-list in its own right, and rejected if it was found somewhere
+    unprivileged code can write.
+    """
+    if not name or os.path.dirname(name) or "/" in name or "\\" in name:
+        raise SecurityError(f"Command must be a bare program name, not a path: {name!r}")
+    if not _is_allow_listed(name):
+        raise SecurityError(f"Command not permitted: {name}")
+    found = shutil.which(name)
+    if found is None:
+        raise SecurityError(f"Command not found: {name}")
+    executable = Path(found).absolute()
+    if not _is_allow_listed(executable.name):
+        raise SecurityError(f"Command not permitted: {executable}")
+    # Both the entry found on PATH and whatever it finally points at have to
+    # live somewhere trustworthy; a symlink from a system directory into a
+    # writable one is the same attack wearing a hat.
+    for candidate in (executable, Path(found).resolve()):
+        if _is_untrusted_location(candidate):
+            raise SecurityError(f"Refusing to run {name} from a writable location: {candidate}")
+    return str(executable)
+
+
 def safe_run(
     command: Sequence[str],
     *,
@@ -294,20 +351,20 @@ def safe_run(
 ) -> subprocess.CompletedProcess[str]:
     """Run *command* safely: no shell, allow-listed executable, with a timeout.
 
+    The program name is vetted and resolved by :func:`resolve_executable`, and
+    the absolute path it returns — not the name — is what gets executed, so the
+    file that was checked is the file that runs.
+
     Raises :class:`SecurityError` if the executable is not allow-listed or is
     not found, and :class:`ToolError`-friendly ``TimeoutExpired`` handling via
     :class:`SecurityError` on timeout.
     """
     if not command:
         raise SecurityError("Empty command")
-    executable = Path(command[0]).name.lower()
-    if executable not in _ALLOWED_COMMANDS:
-        raise SecurityError(f"Command not permitted: {command[0]}")
-    if shutil.which(command[0]) is None and not Path(command[0]).exists():
-        raise SecurityError(f"Command not found: {command[0]}")
+    executable = resolve_executable(command[0])
     try:
         return subprocess.run(  # noqa: S603 - shell=False, allow-listed, timed
-            list(command),
+            [executable, *list(command)[1:]],
             capture_output=True,
             text=True,
             timeout=timeout,

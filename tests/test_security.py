@@ -75,6 +75,27 @@ def test_safe_run_rejects_non_allowlisted():
         security.safe_run([])
 
 
+def test_safe_run_rejects_an_allow_listed_name_behind_a_path(tmp_path: Path):
+    """A path whose basename is allow-listed must not smuggle a binary past it."""
+    planted = tmp_path / "git"
+    planted.write_text("#!/bin/sh\necho pwned\n", encoding="utf-8")
+    planted.chmod(0o755)
+    for argv0 in (str(planted), "/tmp/attacker/git", r"C:\attacker\git.exe", "./git"):
+        with pytest.raises(SecurityError):
+            security.safe_run([argv0, "--version"])
+
+
+def test_safe_run_rejects_a_binary_planted_in_the_working_directory(tmp_path, monkeypatch):
+    """``shutil.which`` searches the working directory first on Windows."""
+    planted = tmp_path / "git"
+    planted.write_text("#!/bin/sh\necho pwned\n", encoding="utf-8")
+    planted.chmod(0o755)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(security.shutil, "which", lambda name: str(planted))
+    with pytest.raises(SecurityError):
+        security.safe_run(["git", "--version"])
+
+
 def test_safe_run_allows_git_version():
     proc = security.safe_run(["git", "--version"], timeout=15)
     assert proc.returncode == 0

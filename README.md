@@ -173,8 +173,10 @@ Security is enforced centrally in `utils/security.py` and applied everywhere:
   system directories can never be deleted.
 - **Archive extraction** — every member is validated against the destination
   before writing, defeating Zip-Slip / Tar-Slip; link members are rejected.
-- **Command execution** — only an allow-list of binaries can be run, always with
-  `shell=False` and a timeout (no shell injection, no hangs).
+- **Command execution** — only an allow-list of binaries can be run: the caller
+  names one (never a path), it is resolved on `PATH`, and a resolution landing
+  in a writable directory is refused — always with `shell=False` and a timeout
+  (no shell injection, no planted binaries, no hangs).
 - **Input validation** — hosts, ports, port ranges and PIDs are validated;
   PID 0/1 are protected from signals.
 - **Secrets** — credentials come only from environment variables / `.env`
