@@ -86,13 +86,33 @@ def test_safe_run_rejects_an_allow_listed_name_behind_a_path(tmp_path: Path):
 
 
 def test_safe_run_rejects_a_binary_planted_in_the_working_directory(tmp_path, monkeypatch):
-    """``shutil.which`` searches the working directory first on Windows."""
-    planted = tmp_path / "git"
+    """``shutil.which`` searches the working directory first on Windows.
+
+    ``tmp_path`` normally lives *under* the system temp root, so the temp-tree
+    rule would reject the planted binary before the working-directory
+    comparison was ever reached — and the test would pass even with that
+    comparison deleted. Pointing the temp root at a sibling directory takes
+    that rule out of play, leaving the cwd rule as the only thing that can
+    make this call fail.
+    """
+    workdir = tmp_path / "workdir"
+    workdir.mkdir()
+    elsewhere = tmp_path / "not-the-temp-root"
+    elsewhere.mkdir()
+    monkeypatch.setattr(security.tempfile, "gettempdir", lambda: str(elsewhere))
+
+    planted = workdir / "git"
     planted.write_text("#!/bin/sh\necho pwned\n", encoding="utf-8")
     planted.chmod(0o755)
-    monkeypatch.chdir(tmp_path)
+    monkeypatch.chdir(workdir)
     monkeypatch.setattr(security.shutil, "which", lambda name: str(planted))
-    with pytest.raises(SecurityError):
+
+    # Precondition: the temp-tree rule cannot fire for this file, so anything
+    # that rejects it below is the working-directory rule doing the work.
+    assert not security.is_within(planted, Path(security.tempfile.gettempdir()))
+    assert security._is_untrusted_location(planted)
+
+    with pytest.raises(SecurityError, match="writable location"):
         security.safe_run(["git", "--version"])
 
 
