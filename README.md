@@ -49,8 +49,8 @@ database.
 ## Installation
 
 ```bash
-git clone <your-repo-url>
-cd "6 DevOps Utility Script Collection"
+git clone https://github.com/mojtaba-py-code/devops-utility-script-collection.git
+cd devops-utility-script-collection
 
 python -m venv .venv
 # Windows:  .venv\Scripts\activate
